@@ -4,6 +4,7 @@
 
 #Clion files
 cmake-*
+.idea
 
 #Visual Studio files
 *.[Oo]bj
