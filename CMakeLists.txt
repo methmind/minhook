@@ -26,7 +26,8 @@
 
 cmake_minimum_required(VERSION 3.0...3.5)
 
-project(minhook LANGUAGES C)
+project(minhook)
+set(CMAKE_CXX_STANDARD 14)
 
 include(CMakePackageConfigHelpers)
 

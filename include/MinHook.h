@@ -28,6 +28,11 @@
 
 #pragma once
 
+#ifdef __cplusplus
+    #include <cassert>
+    #include <utility>
+#endif
+
 #if !(defined _M_IX86) && !(defined _M_X64) && !(defined __i386__) && !(defined __x86_64__)
     #error MinHook supports only x86 and x64 systems.
 #endif
@@ -180,6 +185,42 @@ extern "C" {
     // Translates the MH_STATUS to its name as a string.
     const char *WINAPI MH_StatusToString(MH_STATUS status);
 
+    // Returns the trampoline for a hook using pDetour, or NULL if no matching
+    // hook exists or MinHook is not initialized. Use a distinct detour for each
+    // target when the result must identify a specific hook.
+    // The returned pointer is valid only until that hook is removed or MinHook
+    // is uninitialized. The caller must synchronize its use with those actions.
+    FARPROC WINAPI MH_FindBridgeForDetour(LPVOID pDetour);
 #ifdef __cplusplus
 }
+
+// Construct only after MH_CreateHook succeeds. Do not use after removing the
+// associated hook or uninitializing MinHook. The function type passed to invoke
+// must match the original function's signature and calling convention.
+class C_HookInvoker
+{
+private:
+    FARPROC cached_;
+
+public:
+
+    template<typename func_declaration_t, typename ... arg_t>
+#if defined(_MSC_VER)
+    __forceinline
+#elif defined(__GNUC__) || defined(__clang__)
+    __attribute__((always_inline)) inline
+#else
+    inline
+#endif
+    auto invoke(arg_t&& ... args)
+        -> decltype(reinterpret_cast<func_declaration_t>(cached_)(std::forward<arg_t>(args)...))
+    {
+        return reinterpret_cast<func_declaration_t>(this->cached_)(std::forward<arg_t>(args)...);
+    }
+
+    explicit C_HookInvoker(void* detour) : cached_(MH_FindBridgeForDetour(detour))
+    {
+        assert(this->cached_ != nullptr && "MH_FindBridgeForDetour returned nullptr");
+    }
+};
 #endif

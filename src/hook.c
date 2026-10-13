@@ -72,6 +72,8 @@ typedef struct _HOOK_ENTRY
     UINT   nIP : 4;             // Count of the instruction boundaries.
     UINT8  oldIPs[8];           // Instruction boundaries of the target function.
     UINT8  newIPs[8];           // Instruction boundaries of the trampoline function.
+
+    LPVOID pBridge;             // Address of the original detour function.
 } HOOK_ENTRY, *PHOOK_ENTRY;
 
 // Suspended threads for Freeze()/Unfreeze().
@@ -507,6 +509,31 @@ static VOID LeaveSpinLock(VOID)
 }
 
 //-------------------------------------------------------------------------
+FARPROC WINAPI MH_FindBridgeForDetour(LPVOID pDetour)
+{
+    FARPROC pTrampoline = NULL;
+
+    EnterSpinLock();
+
+    if (g_hHeap != NULL)
+    {
+        UINT i;
+        for (i = 0; i < g_hooks.size; ++i)
+        {
+            if (pDetour == g_hooks.pItems[i].pBridge)
+            {
+                pTrampoline = (FARPROC)g_hooks.pItems[i].pTrampoline;
+                break;
+            }
+        }
+    }
+
+    LeaveSpinLock();
+
+    return pTrampoline;
+}
+
+//-------------------------------------------------------------------------
 MH_STATUS WINAPI MH_Initialize(VOID)
 {
     MH_STATUS status = MH_OK;
@@ -609,6 +636,7 @@ MH_STATUS WINAPI MH_CreateHook(LPVOID pTarget, LPVOID pDetour, LPVOID *ppOrigina
                             pHook->pDetour     = ct.pDetour;
 #endif
                             pHook->pTrampoline = ct.pTrampoline;
+                            pHook->pBridge     = ct.pDetour;
                             pHook->patchAbove  = ct.patchAbove;
                             pHook->isEnabled   = FALSE;
                             pHook->queueEnable = FALSE;
