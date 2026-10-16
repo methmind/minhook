@@ -223,4 +223,10 @@ public:
         assert(this->cached_ != nullptr && "MH_FindBridgeForDetour returned nullptr");
     }
 };
+
+#define MH_CALL(detour) []() -> auto& { \
+        static C_HookInvoker invoker(reinterpret_cast<void*>(detour)); \
+        return invoker; \
+    }().invoke<decltype(&detour)>
+
 #endif
